@@ -24,12 +24,12 @@ const config = {
   url: 'https://WheelsLab.github.io/',
   // Set the /<baseUrl>/ pathname under which your site is served
   // For GitHub pages deployment, it is often '/<projectName>/'
-  baseUrl: '/doc',
+  baseUrl: '/sites/',
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
   organizationName: 'WheelsLab', // Usually your GitHub org/user name.
-  projectName: 'doc', // Usually your repo name.
+  projectName: 'sites', // Usually your repo name.
   deploymentBranch: "github-pages",
   trailingSlash:false,
 
