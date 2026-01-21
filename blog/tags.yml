@@ -1,19 +1,9 @@
-facebook:
-  label: Facebook
-  permalink: /facebook
-  description: Facebook tag description
-
-hello:
-  label: Hello
-  permalink: /hello
-  description: Hello tag description
-
 docusaurus:
   label: Docusaurus
   permalink: /docusaurus
-  description: Docusaurus tag description
+  description: Docusaurus 是一个由 Meta 开源的静态站点生成器，专注于快速构建与维护以文档为核心的技术网站。
 
-hola:
-  label: Hola
-  permalink: /hola
-  description: Hola tag description
+stm32:
+  label: STM32
+  description: STM32 是意法半导体推出的一系列基于 ARM Cortex-M 内核的 32 位微控制器，广泛用于嵌入式系统与工业级应用开发。
+

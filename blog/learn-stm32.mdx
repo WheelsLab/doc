@@ -1,0 +1,411 @@
+---
+title: 学习 STM32
+authors: WheelsLab
+tags: [stm32]
+---
+
+## STM32 学习笔记整理
+
+最近几个月系统性地学习了 STM32 编程，计划将零散的学习笔记整理成一系列结构化文档。本篇文章作为整体概览，用于说明后续的创作计划，并对 STM32 编程涉及的核心内容做一个初步梳理。
+
+整体上，我打算将内容拆分为两个系列，并最终整理成较为完整的文档：
+
+- **STM32 基础**  
+  这一部分主要跟随江协科技（购买了其 STM32 套件）以及铁头山羊的 STM32 教程进行学习。在此之前曾简单接触过 51 单片机，但学习到一半后选择中止。对已经具备一定编程基础的学习者而言，直接从 STM32 入手在效率和实用性上都更合适。
+
+- **STM32 平衡车项目**  
+  该系列基于铁头山羊的平衡车套件，是对前述 STM32 基础知识的一次综合实践，同时也会引入一定的自动控制原理。
+
+从更高层次来看，嵌入式系统通常可以分为两大方向：**嵌入式 MCU** 与 **嵌入式 Linux**。两者在硬件形态、开发方式以及所需技术栈上均有明显差异。目前我主要关注的是 MCU 方向，而 STM32 则是其中应用最为广泛的一类芯片。
+
+STM32 的入门，本质上是学习其片上外设（即 STM32 内部功能模块）的编程接口。但在真正开始写代码之前，有必要先对单片机的概念以及其与“常规应用程序开发”的差异建立基本认知。
+
+<!-- truncate -->
+
+常规应用程序开发依赖于操作系统所提供的各类功能，以及构建在其之上的生态库。应用程序本质上是由操作系统管理的一个或多个进程，其运行环境、资源分配以及调度行为均由操作系统负责。与之相对，单片机开发通常属于裸机开发（Bare-metal）：系统中不存在通用意义上的操作系统，也很少引入复杂的第三方库。开发者编写的程序几乎就是芯片上运行的全部软件逻辑，代码直接与硬件打交道，负责从上电启动到外设控制的完整流程。
+
+当然，也可以在单片机上引入 RTOS 来提供任务调度等操作系统级能力，但这属于更高一层的抽象，将在后续内容中再展开讨论。
+
+[单片机（Single-chip microcomputer）](https://zh.wikipedia.org/wiki/%E5%8D%95%E7%89%87%E6%9C%BA)可以被视为一台高度集成的“迷你计算机”。如果有 DIY 电脑的经验，就会知道一台完整的 PC 由 CPU / GPU / 主板 / 内存 / 存储等多个部件构成，不同外设通过各类总线（如南北桥、USB、PCIe）进行连接与通信。单片机在架构上与之类似，其片上外设同样通过内部总线（如 AHB、APB1、APB2）连接到 CPU，只是外设类型更加聚焦于嵌入式场景，例如 USART、I2C、定时器等。从这一角度看，MCU 更接近于手机中的 **SoC（System on a Chip）**。
+
+![img](./learn-stm32.assets/250px-Motherboard_diagram.svg.png)
+
+:::note
+
+**[单片机](https://zh.wikipedia.org/wiki/%E5%8D%95%E7%89%87%E6%9C%BA)**（英语：Single-chip microcomputer，台湾作**单晶片**，全称**单芯片微型计算机**），是把[中央处理器](https://zh.wikipedia.org/wiki/中央處理器)、[存储器](https://zh.wikipedia.org/wiki/電腦記憶體)、定时/计数器（timer/counter）、各种[输入输出接口](https://zh.wikipedia.org/wiki/I/O)等都集成在一块[集成电路](https://zh.wikipedia.org/wiki/集成電路)[芯片](https://zh.wikipedia.org/wiki/芯片)上的[微型计算机](https://zh.wikipedia.org/wiki/微型计算机)。
+
+:::
+
+在实际的软件开发中，很少会完全从零开始编写所有内容，而是依赖框架或库来屏蔽底层细节。例如前端开发中的 React、Java 后端中的 Spring Boot，或 Linux 驱动开发中的 POSIX API。嵌入式开发同样如此。
+
+对于 STM32 而言，芯片原厂（microcontroller vendor）提供了用于简化开发的基础库，主要包括 **SPL（Standard Peripheral Library，已停止维护）** 和 **HAL（Hardware Abstraction Layer，官方主推）**。这些库对寄存器级操作进行了封装，使开发者可以通过更高层次的 API 来配置和使用外设。而 51 单片机编程往往需要直接查阅 Datasheet 并操作寄存器，而STM32 的入门过程，本质上是理解并正确使用这些外设 API。不过，即便是 API 级别的开发，也需要对 STM32 的硬件结构和外设原理有基本认识。
+
+![Inside the STM32Cube ecosystem](./learn-stm32.assets/stm32diagram.png)
+
+在后续的文档中，我将以 **SPL 库**为基础，系统性地整理各个模块的工作原理与编程方法。
+
+| 文档：STM32 入门 | 描述 |
+|------------------|------|
+| `00 STM32` | STM32 系列单片机整体概述，包括芯片架构、存储器映射、总线体系（AHB / APB）以及基本开发流程 |
+| `01 GPIO` | 通用输入输出接口，介绍引脚复用、工作模式配置及基本的数字输入输出操作 |
+| `02 UART` | 串口通信原理与使用方法，包括波特率配置、中断方式收发以及常见调试场景 |
+| `03 I2C` | I2C 总线通信机制，主从模式、时序特性及 STM32 中 I2C 外设的配置与使用 |
+| `04 SPI` | SPI 通信协议原理，多种工作模式及其在 STM32 中的配置与数据传输流程 |
+| `05 Interrupt` | STM32 中断体系概述，包括 NVIC、中断优先级以及中断服务函数的基本结构 |
+| `06 EXTI` | 外部中断与事件控制器，介绍引脚中断触发方式及其与 NVIC 的配合使用 |
+| `07 Clock` | 时钟系统原理，包括内部 / 外部时钟源、PLL 配置及系统时钟树 |
+| `08 Timer` | 定时器工作原理，基础定时、输入捕获、输出比较及 PWM 生成 |
+| `09 ADC` | 模数转换原理，采样与量化过程，以及 STM32 ADC 外设的配置与使用 |
+
+
+在此基础上，将展开 **STM32 平衡车项目**。该项目不仅是对前述基础知识的综合应用，还会引入控制系统相关的概念。文档同样按照模块进行拆分，并继续使用 SPL 进行开发。
+
+| 文档：STM32 平衡车项目 | 描述 |
+|------------------|------|
+| `01 项目概述` | 项目整体介绍与效果演示，说明系统组成、硬件结构以及功能目标 |
+| `02 Battery` | 电池电压采集与电量估算，介绍电源管理及 ADC 在项目中的实际应用 |
+| `03 Motor` | 电机驱动与调速控制，包括 PWM 输出及电机控制基本原理 |
+| `04 Encoder` | 编码器接口与速度测量方法，用于获取电机转速等反馈信息 |
+| `05 MPU6050` | IMU 传感器使用，姿态数据采集与欧拉角解算过程 |
+| `06 PID` | PID 控制算法原理及其在电机转速控制中的实现 |
+| `07 Inverted-pendulum` | 倒立摆模型建立，用于描述平衡车系统的动力学特性 |
+| `08 SpeedLoop` | 速度环控制设计，将速度反馈引入整体控制系统 |
+| `09 RemoteControl` | 蓝牙通信实现，用于远程控制与参数调节 |
+
+
+最后，我计划使用 **HAL 库** 对平衡车项目进行重构，并将其整理为对比性的文档，以加深对 STM32 不同开发方式的理解。
+
+下面将对各个部分做进一步的简要概述。
+
+## STM32 基础
+
+STM32 是[意法半导体（STMicroelectronics）](https://www.st.com.cn/content/st_com/zh.html) 基于[ARM Cortex-M 内核](https://www.st.com/content/st_com/en/arm-32-bit-microcontrollers.html)推出的一系列 [32 位](https://en.wikipedia.org/wiki/32-bit_computing)[微控制器（MCU）](https://en.wikipedia.org/wiki/Microcontroller)。根据性能、功耗以及应用场景的不同，ST 将 STM32 划分为多个产品系列，例如主流型、高性能型、低功耗型以及无线系列等。
+
+下图为 STM32 系列芯片的命名规则
+
+![https://www.stmcu.com.cn/upload/Selection_Guide.pdf](./learn-stm32.assets/STM32_MCU_Selection_Guide.png)
+
+出于学习和理解的目的，选用入门级的 `STM32F103C8T6` 已经足够，也就是常见的 [**Blue Pill**](https://stm32-base.org/boards/STM32F103C8T6-Blue-Pill.html) 蓝色开发板。
+
+| STM32F103C8T6 基本参数 | 含义                         |
+| ---------------------- | ---------------------------- |
+| `STM32`                | ST 公司推出的 32 位 MCU 系列 |
+| `F103`                 | F1 系列，主流入门级产品线    |
+| `C`                    | 48 引脚封装                  |
+| `8`                    | 64 KB 片上 Flash 存储        |
+| `T`                    | LQFP 封装形式                |
+| `6`                    | 工作温度范围 −40°C ~ 85°C    |
+
+![Blue Pill: Perspective view](./learn-stm32.assets/STM32F103C8T6_Blue_Pill-1.jpg)![Blue Pill: Bottom view](./learn-stm32.assets/STM32F103C8T6_Blue_Pill-3.jpg)
+
+## STM32 整体结构概述和一般开发流程
+
+本文中的教程与示例代码均基于 **STM32 最小系统板 + 面包板**展开。
+
+最小系统板上已经集成并焊接了维持 MCU 正常运行所必需的基础硬件电路，包括电源、复位以及时钟等相关电路。
+
+:::tip 关于最小系统板可以看以下视频
+
++ Bilibili@洋桃电子
+  + [STM32入门100步 第 17 步 最小系统电路](https://www.bilibili.com/video/BV1MW411q7Jn/?p=19&share_source=copy_web&vd_source=dfd0807ec9090236e4eccd0cc696b85b)
+  + [如何看懂电路图？如何画原理图？](https://www.bilibili.com/video/BV1LZ421x75m/)
+  + [五花八门的电源标号该怎么看 VCC VEE VDD VSS GND的含义](https://www.bilibili.com/video/BV1ct4y1o738/)
+
+:::
+
+![image-20260121155806858](./learn-stm32.assets/image-20260121155806858.png)
+
+而面包板则用于通过飞线连接各类外部模块，方便进行实验和扩展。
+
+![Front and back, medium breadboard with power rails exposed](./learn-stm32.assets/bread-board.jpg)
+
+从整体上看，一块 STM32 开发板可以拆分为两个部分：
+
+1. STM32 MCU 芯片本身
+2. 围绕芯片工作的外部元件
+
+STM32 芯片就是蓝色开发板中央那个方形的黑色芯片：
+
+![img](./learn-stm32.assets/250px-STM32H7B0.jpg)![img](./learn-stm32.assets/250px-PIC12C508-HD.jpg)
+
+STM32 芯片内部实际上是一个完整的微型计算机系统，其核心是 ARM 公司设计的 Cortex-M 系列内核（可类比为 CPU），周围通过多种总线连接了由 ST 公司设计的**片上外设（Peripheral）**
+
+这些片上外设包括但不限于：GPIO、USART、I2C、SPI、定时器（TIM）、ADC 等。可以将 STM32 理解为，一个将 CPU、内存和大量外设集成在单一芯片中的嵌入式计算平台。
+
+![image-20260120214716773](./learn-stm32.assets/image-20260120214716773.png)
+
+![image-20260120141322784](./learn-stm32.assets/image-20260120141322784.png)
+
+STM32 芯片四周分布着一圈银白色的引脚，这些引脚对应的正是 **GPIO 模块**所管理的物理接口。STM32 正是通过这些引脚与外部世界进行交互。在开发板上，部分引脚会被进一步引出到两排针脚，方便通过面包板连接 LED、按键、传感器等外部元件。这些引脚除了最基础的输出高/低电平之外，更重要的是，这些引脚可以被复用，由 STM32 内部的不同**外设模块接管**。
+> 例如：
+> + USART 模块 → 通过引脚向 PC 发送调试信息
+> + I2C 模块 → 通过引脚控制 OLED 屏幕
+> + SPI 模块 → 驱动 Flash 或其他高速外设
+
+STM32 的学习核心，本质上就是**学会如何配置和使用这些内部模块**。
+
+![The-Generic-STM32F103-Pinout-Diagram.jpg](./learn-stm32.assets/The-Generic-STM32F103-Pinout-Diagram.jpg)
+
+GPIO 模块是 STM32 与外部设备之间的接口，可以类比为“硬件层面的 API”。STM32 通常包含多个 GPIO 模块（GPIOA/GPIOB/GPIOC/GPIOD），每个 GPIO 模块会引出若干引脚，例如：
+
+- `PA0 ~ PA15` → GPIOA
+- `PC13` → GPIOC 的第 13 号引脚
+
+程序中对某个引脚的控制，本质上就是在操作对应 GPIO 模块的寄存器。从宏观上看，STM32 的外设编程几乎都遵循同一套流程：
+
+1. 开启模块时钟
+2. 初始化模块参数
+3. 使用模块功能
+
+STM32 的时钟系统（Clock Tree）本身较为复杂，完整展开需要相当多的篇幅。对于初学阶段，可以先建立一个直观认识：
+
+:::tip 
+
+时钟是驱动整个芯片运行的“心跳”。如果不理解可以看下科普视频
+
++ Bilibili@[技术Flow](https://space.bilibili.com/392208938/?spm_id_from=333.788.upinfo.detail.click)：[计算的心跳：时钟如何推动 CPU 前进?](https://www.bilibili.com/video/BV121SnYiE7E/?share_source=copy_web&vd_source=dfd0807ec9090236e4eccd0cc696b85b)
++ Bilibili@[六六学得很6](https://space.bilibili.com/6110244/?spm_id_from=333.788.upinfo.detail.click)：[从零搭建计算机保姆级教程08——时钟原理](https://www.bilibili.com/video/BV1yeKxz2E29/?share_source=copy_web&vd_source=dfd0807ec9090236e4eccd0cc696b85b)
++ Bilibili@[爱上半导体](https://space.bilibili.com/395188578/?spm_id_from=333.788.upinfo.detail.click)：[全球销量第一的芯片!50年设计没变过！不到一块钱！包含23个晶体管！](https://www.bilibili.com/video/BV1L29yYZEp4/?share_source=copy_web&vd_source=dfd0807ec9090236e4eccd0cc696b85b)
+
+:::
+
+![img](./learn-stm32.assets/stm32-clock-tree-stm32cubemx-config.png)
+
+每一次时钟跳动，ARM Cortex 内核都会向前执行一步指令。这与 PC CPU 的主频概念类似——主频越高，每秒能执行的指令就越多。
+
+在 STM32 内部，不同外设工作在不同的时钟频率下，它们通过不同的总线连接到系统中
+
++ 高速外设：AHB
+
++ 低速外设：APB1 / APB2
+
+在实际开发中，只需要记住两点：
+
+1. **任何外设在使用前都必须开启时钟**
+2. 初学阶段，时钟通常配置为较高频率即可
+
+时钟开启后，电路才具备工作条件，接下来就是**配置模块参数**。以 GPIO 为例，初始化时通常需要指定：使用的引脚号、输入 / 输出模式、是否开启上拉 / 下拉、输出速度。在库函数中，这些参数通常被封装在一个**结构体**中，我们只需要填充结构体成员，然后将结构体传给对应的初始化函数，即可配置好模块。几乎所有 STM32 外设的初始化流程都遵循这一模式。
+
+初始化完成后，就可以通过库函数来使用模块功能了。下面是一个经典的**点灯程序**，可以视为嵌入式开发中的 “Hello World”：
+
+```c title='BlinkLED.c'
+#include "stm32f10x.h" // 引入 SPL 库的头文件
+#include "Delay.h"
+
+int main(void) {
+    // 1. 开启模块时钟
+	// 所有外设的运行都依赖时钟
+	// PC13 属于 GPIOC，因此需要开启 GPIOC 的时钟
+	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOC, ENABLE); // 开启 GPIOC 时钟
+	
+    // 2. 配置模块参数
+    GPIO_InitTypeDef GPIO_InitStructure = {0};			  // 包含 GPIO 配置信息的结构体
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_OD;	  // 开漏输出模式
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_13;			  // PC13 引脚
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;	  // IO 最大输出速度
+	GPIO_Init(GPIOC, &GPIO_InitStructure);
+	
+
+	while(1){
+		// 3. 使用模块
+		GPIO_WriteBit(GPIOC, GPIO_Pin_13, Bit_RESET); // 亮
+		Delay_ms(1000);
+		GPIO_WriteBit(GPIOC, GPIO_Pin_13, Bit_SET); // 灭
+		Delay_ms(1000);
+	};
+}
+```
+
+从 C 源码到单片机上实际运行的程序，还需要经历以下步骤：
+
+1. **编译（Compile）**
+
+2. **汇编（Assemble）**
+
+3. **链接（Link）**
+
+生成的最终产物（如 ELF / HEX / BIN）会被烧录到 STM32 的 Flash 中。
+
+![The Definitive Guide to ARM® Cortex®-M3 and Cortex®-M4 Processors 3rd Edition](./learn-stm32.assets/common-software-compilation-flow.png)
+
+程序烧录和调试通常通过 **调试器（如 ST-Link V2）** 完成。除了烧录代码外，调试器的作用还包括：设置断点、单步执行、查看寄存器和内存。
+
+![The Definitive Guide to ARM® Cortex®-M3 and Cortex®-M4 Processors 3rd Edition](./learn-stm32.assets/A-simplified-software-development-flow.png)
+
+## STM32 平衡车项目概览
+
+[你已经会点灯了，现在我们来做一个平衡车吧（笑）.jpg](https://zh.moegirl.org.cn/%E8%BF%99%E6%98%AFooo%EF%BC%8C%E4%BD%A0%E5%B7%B2%E7%BB%8F%E5%AD%A6%E4%BC%9A%E4%BA%86%EF%BC%8C%E7%8E%B0%E5%9C%A8%E5%8E%BBxxx%E5%90%A7%EF%BC%81)
+
+![这是ooo，你已经学会了，现在去xxx吧！](./learn-stm32.assets/from-one-plus-one-to-calculus.jpeg)
+
+整个项目中最具挑战、也是最核心的部分，无疑是 PID 控制算法——它直接决定了小车是否能够稳定站立。
+
+下面将从硬件组成、软件结构以及整体控制逻辑三个层面，对该 STM32 平衡车项目进行一个整体概览。
+
+本项目依然基于 STM32F103C8T6（最小系统板）进行开发，整体硬件由以下模块构成：
+
++ 两个直流减速电机
+
++ TB6612 电机驱动芯片（可同时驱动两路直流电机）
++ 3 颗 LED，用于电量指示
+
++ ADC1，用于采集电池电压
+
++ USART3，连接蓝牙遥控模块
+
++ I2C1，连接姿态传感器 MPU6050
+
++ 一个按键，用于控制电机启停
+
+下面是原理图，已经标注了各个模块及其对应的引脚连接方式：
+
+![平衡车原理图](./learn-stm32.assets/balance-car-schematic.png)
+
+从软件结构上看，该项目依然沿用了 STM32 裸机开发中非常典型的一种组织方式：**“先初始化所有模块，再在主循环中周期性调用各模块的处理函数。”**
+
+下面是程序的 `main` 函数主体：
+
+```c
+/*
+ * ************************************************
+ * 
+ * @author ICLHC
+ * @date 2025/10/15
+ * @brief 平衡车项目（bilibili@铁头山羊 的 STM32 标准库平衡车课程）
+ * 
+ * CPU:     STM32F103C8
+ * 
+ * ************************************************
+*/
+#include "stm32f10x.h"
+#include "app_bat.h"
+#include "app_button.h"
+#include "app_pwm.h"
+#include "app_encoder.h"
+#include "app_mpu6050.h"
+#include "app_motor.h"
+#include "delay.h"
+#include "app_usart2.h"
+#include "task.h"
+#include "app_control.h"
+#include "app_rc.h"
+
+int main(void) {
+	// 配置中断优先级分组
+	NVIC_PriorityGroupConfig(NVIC_PriorityGroup_0); // 没有抢占优先级
+
+	App_Bat_Init(); 	// 电池监控
+	App_Button_Init(); 	// 电机开关
+	App_PWM_Init(); 	// TB6612
+	App_Encoder_Init(); // 编码器测速
+	App_MotorInit(); 	// 电机调速系统
+	App_USART2_Init(); 	// 串口 2 初始化
+	App_MPU6050_Init(); // MPU6050 初始化（姿态传感器）
+	App_Control_Init(); // 平衡车控制系统（速度环/角度环/转速环）
+	App_RC_Init(); 		// 蓝牙遥控器模块
+
+	while(1){
+
+		App_Bat_Proc();
+		App_Button_Proc();
+		App_Motor_Proc();
+		App_MPU6050_Proc();
+		App_Control_Proc();
+		App_RC_Proc();
+	};
+}
+```
+
+尽管相较于“点灯程序”复杂了不少，但整体框架其实并没有发生本质变化。
+
+下面按照初始化顺序，简要说明各模块在系统中的角色。
+
+| 模块名        | 模块类型       | 主要功能                                                     | 关键接口 / 信号                                 |
+| ------------- | -------------- | ------------------------------------------------------------ | ----------------------------------------------- |
+| `app_bat`     | 电池监控       | 通过 ADC 周期性采集电池电压，并用 LED 显示电量状态，为系统提供电源状态反馈，辅助电压补偿与安全运行 | `VBAT_SENSE` → `ADC1_CH8``App_Bat_Proc()`       |
+| `app_button`  | 按键输入       | 控制 TB6612 电机驱动的使能状态，实现电机启停的本地用户控制   | GPIO 输入`App_Button_Proc()`                    |
+| `app_pwm`     | 电机驱动       | 封装 TB6612，使用 PWM 控制电机转速、GPIO 控制转向，直接执行控制系统给出的电机控制指令 | PWM ×1 + GPIO ×2 / 电机电机使能、转速、方向接口 |
+| `app_encoder` | 编码器采集     | 获取电机实际转速与转动角度，作为速度闭环控制中的核心反馈量   | 编码器接口速度 / 角度读取函数                   |
+| `app_motor`   | 电机调速系统   | 基于 PID 的电机转速闭环控制，利用实际转速反馈计算目标电压，并换算为 PWM 占空比交由电机驱动模块执行 | 实际转速反馈PWM 占空比输出                      |
+| `app_usart2`  | 调试串口       | 通过串口输出运行状态与调试信息，用于参数整定和问题排查       | `USART2`                                        |
+| `app_mpu6050` | 姿态传感器     | 采集三轴加速度与角速度并计算欧拉角，其中俯仰角作为平衡控制中最关键的姿态反馈信号 | I2C 接口俯仰角输出                              |
+| `app_control` | 平衡车控制系统 | 由多级 PID 串联构成的核心控制系统：电机转速环 → 俯仰角平衡环 → 前进/后退速度环 → 差速转向环，逐层约束并修正整车运动状态 | 各级 PID 输入 / 输出                            |
+| `app_rc`      | 蓝牙遥控       | 接收遥控器控制指令并经 USART3 传输给单片机，用于控制小车运动方向与速度 | `USART3`                                        |
+
+整个小车的一切，无论是硬件还是软件，都是围绕平衡小车的控制系统来设计的。**所有模块的最终目标只有一个：服务于平衡控制系统**。
+
++ 电池电压 → 系统供能与电压补偿
+
++ 编码器 → 电机转速反馈
+
++ 姿态传感器 → 俯仰角反馈
+
++ 蓝牙模块 → 用户控制指令
+
+就拿这个主循环来说，代码中高亮的部分都是在获取传感器的输入或者控制指令，而最终会影响到整个控制系统。
+
+```
+while(1){
+		// highlight-start
+		App_Bat_Proc();
+		// highlight-end
+		App_Button_Proc();
+		// highlight-start
+		App_Motor_Proc();
+		App_MPU6050_Proc();
+		// highlight-end
+		App_Control_Proc(); // 这个是核心，其他模块都为此服务
+		// highlight-next-line
+		App_RC_Proc();
+	};
+```
+
+## 参考资料
+
++ STM32 视频教程：
+  + Bilibili@**江协科技**：
+    + STM32 入门：[STM32入门教程-2023版 细致讲解 中文字幕](https://www.bilibili.com/video/BV1th411z7sn/?share_source=copy_web&vd_source=dfd0807ec9090236e4eccd0cc696b85b) 
+    + 51 单片机：[51单片机入门教程-2020版 程序全程纯手打 从零开始入门](https://www.bilibili.com/video/BV1Mb411e7re/?spm_id_from=333.1387.favlist.content.click&vd_source=09e40ceac2e24458541f02b7458cb1d5)
+    + PID：[PID入门教程-电机控制 倒立摆 全程手把手打代码调试](https://www.bilibili.com/video/BV1G9zdYQEr3/?share_source=copy_web&vd_source=dfd0807ec9090236e4eccd0cc696b85b) 
+  + Bilibili@**铁头山羊**：
+    + STM32 基础教程：[铁头山羊stm32 入门教程【新版】](https://www.bilibili.com/video/BV11X4y1j7si/?p=4&share_source=copy_web&vd_source=dfd0807ec9090236e4eccd0cc696b85b) 
+    + STM32 平衡车：[平衡车要开课了，先来个原地起飞~](https://www.bilibili.com/video/BV1wdqhY4E3R/?share_source=copy_web&vd_source=dfd0807ec9090236e4eccd0cc696b85b) 
+    + STM32 HAL 库：[[STM32 HAL库]课程介绍，最佳教程，没有之一~](https://www.bilibili.com/video/BV16J4m1w7HB/?share_source=copy_web) 
++ [STM32 Blue Pill Pinout & Programming Guide](https://deepbluembedded.com/stm32-blue-pill-pinout-programming-guide/)
++ 裸机编程：
+  + Klein Embedded：[STM32 without CubeIDE (Part 1): The bare necessities](https://kleinembedded.com/stm32-without-cubeide-part-1-the-bare-necessities/)
+  + YouTube@**Low Byte Productions**：[Blinky To Bootloader: Bare Metal Programming Series](https://www.youtube.com/watch?v=uQQsDWLRDuI&list=PLP29wDx6QmW7HaCrRydOnxcy8QmW0SNdQ)
+  + GitHub@**cpq**：**[bare-metal-programming-guide](https://github.com/cpq/bare-metal-programming-guide)**
++ reddit@[r/embedded](https://www.reddit.com/r/embedded/)
+  + [STM32 Learning Curve for beginners](https://www.reddit.com/r/embedded/comments/18g3aae/stm32_learning_curve_for_beginners/)
++ 自动控制原理：
+  + [【4K修复】自动控制原理 卢京潮 西北工业大学 ](https://www.bilibili.com/video/BV1LKLPzfEm4/?share_source=copy_web&vd_source=dfd0807ec9090236e4eccd0cc696b85b) 
+  + [自动控制原理 Bilibili@DR_CAN](https://www.bilibili.com/video/BV1jt411M7QU/?share_source=copy_web&vd_source=dfd0807ec9090236e4eccd0cc696b85b) 
++ 电子入门 视频教程
+  + Bilibili@**洋桃电子**
+    + [合集·电子大百科（洋桃电子的技术科普）](https://space.bilibili.com/277276709/lists/1852078?type=season)
+    + [合集·极速入门数模电路（全新面包板入门电子制作）](https://space.bilibili.com/277276709/lists/2985482?type=season)
++ 电子入门：
+  + [Emoe工作室](https://www.emoe.xyz/)：[电子入坑百科全书](https://www.emoe.xyz/all-about-electronics/#1-gt-gt)
+  + [This Cute World](https://thiscute.world/)：[EE 入门（一） - 电子电路基础知识](https://thiscute.world/posts/electrical-engineering-circuits-basics-1/)
+  + YouTube@**Science Buddies**：[How to Use a Breadboard](https://youtu.be/MtiJz7gh1VU?si=wbZ2E7lPZTlAtegH)
+  + [sparkfun](https://www.sparkfun.com/)：
+    + [How to Use a Breadboard](https://learn.sparkfun.com/tutorials/how-to-use-a-breadboard/all)
+    + [Engineering Essentials](https://www.sparkfun.com//engineering-essentials)
++ 一些书籍：
+  + [The Definitive Guide to ARM® Cortex®-M3 and Cortex®-M4 Processors 3rd Edition](https://www.amazon.com/Definitive-Guide-Cortex%C2%AE-M3-Cortex%C2%AE-M4-Processors/dp/0124080820)
+  + [Making Embedded Systems: Design Patterns for Great Software 2nd](https://www.amazon.com/Making-Embedded-Systems-Patterns-Software/dp/1098151542/ref=pd_lpo_d_sccl_2/138-7367255-5244911?pd_rd_w=6hkNR&content-id=amzn1.sym.4c8c52db-06f8-4e42-8e56-912796f2ea6c&pf_rd_p=4c8c52db-06f8-4e42-8e56-912796f2ea6c&pf_rd_r=MK2KSQRSB3YM3012YRZS&pd_rd_wg=iskUL&pd_rd_r=6ea5f405-fbd6-4709-8df5-80ff609787e1&pd_rd_i=1098151542&psc=1)
+  + [Make: Electronics: Learning by Discovery: A hands-on primer for the new electronics enthusiast 3rd Edition](https://www.amazon.com/Make-Electronics-hands-electronics-enthusiast/dp/1680456873/ref=bmx_dp_d_sccl_1_2/138-7367255-5244911?pd_rd_w=9bqdf&content-id=amzn1.sym.1db06c01-2868-43e5-b772-15226cedca7d&pf_rd_p=1db06c01-2868-43e5-b772-15226cedca7d&pf_rd_r=YPZ7X3JTBWWM6427MYPM&pd_rd_wg=Xosqr&pd_rd_r=f6d467e5-66d3-4bc2-b138-79ab846b4ef9&pd_rd_i=1680456873&psc=1)
+  + [Practical Electronics for Inventors, Fourth Edition 4th Edition](https://www.amazon.com/Practical-Electronics-Inventors-Fourth-Scherz/dp/1259587541/ref=pd_vtp_d_sccl_1_3/138-7367255-5244911?pd_rd_w=XB8qs&content-id=amzn1.sym.2aec5a0f-72e8-4d2b-85c5-8e0dd71765ff&pf_rd_p=2aec5a0f-72e8-4d2b-85c5-8e0dd71765ff&pf_rd_r=T04RP2K6K3CBQYM2AE23&pd_rd_wg=Asu3k&pd_rd_r=06057bdf-6ea1-4758-b08d-b9e20ab2d545&pd_rd_i=1259587541&psc=1)
++ RTOS
+  + YouTube@**DigiKey**：[Introduction to RTOS Part 1 - What is a Real-Time Operating System (RTOS)? | Digi-Key Electronics](https://youtu.be/F321087yYy4?si=kA3Z7I-tLQ9bgrqT)
+
++ 嵌入式软件开发
+  + YouTube@**hoff._world**：[COMPLETE EMBEDDED SYSTEMS Roadmap - What Arduino Won't Teach You](https://youtu.be/Dzn0woX-WW0?si=4qOjxvjYf7oMY88t)
+
++ YouTube@**VisCircuit 電路筆記**：[ESP32, Arduino, STM32 和 8051 是怎麼發明的？](https://youtu.be/t0zRpOQHeF4?si=hqLdwYkC-oYbySSw)
+
+
+
+
+
